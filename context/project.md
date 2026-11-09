@@ -13,7 +13,7 @@ Dataset	BANKING77: 13,083 labelled banking queries across 77 intent classes.
 Duration	Two days for a functional prototype; scope is limited to an MVP.
 Deliverable	A working complaint-analysis application plus a measured comparison of two classification approaches.
 
-1. Project Overview
+1. Project Overcoview
 BankSense is an NLP-powered banking complaint intelligence platform designed to automate the initial analysis, classification and prioritisation of customer messages. It converts unstructured text into structured information that can help support teams review and organise incoming cases. The system is a decision-support prototype, not an autonomous complaint-resolution or banking transaction system.
 2. Problem Statement
 Banks and financial service providers receive customer messages about failed transfers, duplicate charges, cash withdrawals, card payments, refunds and account access. Manually reviewing and sorting these messages takes time; similar cases may be investigated separately; and recurring problems can be difficult to identify. BankSense explores how NLP can understand banking-related text, predict intent, retrieve related cases and provide a concise operational view.
