@@ -9,6 +9,7 @@ venv/
 # Environment
 .env
 .env.*
+!frontend/.env.example
 
 # Local database and user data
 data/*.db

@@ -56,6 +56,31 @@ scripts/
   seed_demo.py             # optional, clearly labelled demo rows
 ```
 
+## Architecture
+
+```text
+React UI (Vite)
+  -> frontend/src/api/client.js
+  -> FastAPI routes (backend/routes)
+  -> complaint_service (validation + orchestration)
+       -> Person A NLP: predict -> suggest_priority -> rank_similar -> summarize
+       -> SQLite repository (backend/db)
+  -> JSON response -> UI result + dashboard
+```
+
+Request flow for `POST /api/complaints/analyze`:
+
+1. FastAPI/Pydantic parses and the service validates `text`, length, and `model`.
+2. `predict` returns the intent and model confidence.
+3. `suggest_priority` returns a rule-based priority and reason.
+4. Stored rows are passed to `rank_similar` for cosine-ranked similar cases.
+5. `summarize` is called only when the summariser reports `enabled`.
+6. The record is persisted and the contract response is returned.
+
+Person A's functions are imported lazily through one adapter in
+`complaint_service`; Person B never loads model artifacts directly and never
+duplicates inference logic.
+
 ## Dataset
 
 BANKING77 is downloaded from the PolyAI-LDN `task-specific-datasets` repository
@@ -129,7 +154,7 @@ Error responses always use:
 ```
 
 Codes: `VALIDATION_ERROR`, `UNKNOWN_MODEL`, `MODEL_UNAVAILABLE`,
-`INFERENCE_ERROR`, `NOT_FOUND`.
+`INFERENCE_ERROR`, `NOT_FOUND`, `HTTP_ERROR`.
 
 ### `POST /api/complaints/analyze`
 

@@ -91,6 +91,16 @@ def test_model_unavailable_is_503(client, monkeypatch):
     assert response.json()["error"]["code"] == "MODEL_UNAVAILABLE"
 
 
+def test_unexpected_inference_failure_is_500(client_no_raise, monkeypatch):
+    def explode():
+        raise RuntimeError("unexpected failure")
+
+    monkeypatch.setattr(complaint_service, "_load_nlp", explode)
+    response = client_no_raise.post("/api/complaints/analyze", json={"text": "hello"})
+    assert response.status_code == 500
+    assert response.json()["error"]["code"] == "INFERENCE_ERROR"
+
+
 def test_summary_enabled_is_returned(enabled_summary_client):
     response = enabled_summary_client.post(
         "/api/complaints/analyze", json={"text": "I was charged twice."}

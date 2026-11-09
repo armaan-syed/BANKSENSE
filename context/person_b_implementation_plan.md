@@ -67,16 +67,20 @@ BankSense/
 │   ├── db/                        # Person B
 │   │   ├── __init__.py
 │   │   ├── connection.py
+│   │   ├── repository.py
 │   │   └── schema.sql
-│   ├── tests/                     # Person B (test_db.py, test_api_*.py)
+│   ├── tests/                     # Person B (test_api_*.py, conftest.py)
 │   ├── nlp/                       # Person A ONLY — do not edit
 │   ├── models/                    # Person A ONLY — read-only at runtime
 │   └── reports/                   # Person A ONLY
+├── scripts/
+│   └── seed_demo.py               # Person B (optional, source="demo" rows)
 └── frontend/                      # Person B
+    ├── .env.example
     └── src/
         ├── api/
         ├── components/
-        └── pages/
+        └── constants.js
 ```
 
 **Import rule (prevents integration failures):** the backend is a package served from the repo root with `uvicorn backend.app:app --reload --port 8000`. All imports are absolute, e.g. `from backend.nlp.predictor import predict, predict_top_k, health as nlp_health`. Do not add `sys.path` hacks or import `nlp.*` directly.
@@ -196,7 +200,7 @@ Rules: models load once per process. Person B calls these functions **once per r
 ```
 Error envelope (all errors):
 ```json
-{"error": {"code": "VALIDATION_ERROR|UNKNOWN_MODEL|MODEL_UNAVAILABLE|INFERENCE_ERROR|NOT_FOUND", "message": "...", "field": "text"}}
+{"error": {"code": "VALIDATION_ERROR|UNKNOWN_MODEL|MODEL_UNAVAILABLE|INFERENCE_ERROR|NOT_FOUND|HTTP_ERROR", "message": "...", "field": "text"}}
 ```
 Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unavailable; 500 inference failure; 404 unknown id. `confidence` rounded to 4 decimals in transport.
 

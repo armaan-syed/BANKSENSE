@@ -212,7 +212,7 @@ Rules: models are loaded **once per process** (cached loader), never per request
 ```
 Error envelope (all errors):
 ```json
-{"error": {"code": "VALIDATION_ERROR|UNKNOWN_MODEL|MODEL_UNAVAILABLE|INFERENCE_ERROR|NOT_FOUND", "message": "...", "field": "text"}}
+{"error": {"code": "VALIDATION_ERROR|UNKNOWN_MODEL|MODEL_UNAVAILABLE|INFERENCE_ERROR|NOT_FOUND|HTTP_ERROR", "message": "...", "field": "text"}}
 ```
 Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unavailable; 500 inference failure; 404 unknown id. `confidence` rounded to 4 decimals in transport.
 

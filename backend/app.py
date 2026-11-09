@@ -12,6 +12,7 @@ from backend.config import CORS_ORIGINS
 from backend.db.connection import init_db
 from backend.errors import (
     APIError,
+    HTTP_ERROR,
     INFERENCE_ERROR,
     NOT_FOUND,
     VALIDATION_ERROR,
@@ -77,7 +78,7 @@ async def validation_error_handler(
 
 @app.exception_handler(StarletteHTTPException)
 async def http_error_handler(_: Request, exc: StarletteHTTPException) -> JSONResponse:
-    code = NOT_FOUND if exc.status_code == 404 else "HTTP_ERROR"
+    code = NOT_FOUND if exc.status_code == 404 else HTTP_ERROR
     return JSONResponse(
         status_code=exc.status_code,
         content={"error": {"code": code, "message": str(exc.detail)}},

@@ -88,6 +88,18 @@ def client(tmp_path, monkeypatch):
 
 
 @pytest.fixture
+def client_no_raise(tmp_path, monkeypatch):
+    db_path = tmp_path / "test.db"
+    monkeypatch.setattr(connection, "DATABASE_PATH", db_path)
+    monkeypatch.setattr(complaint_service, "_load_nlp", lambda: make_nlp())
+
+    from backend.app import app
+
+    with TestClient(app, raise_server_exceptions=False) as test_client:
+        yield test_client
+
+
+@pytest.fixture
 def enabled_summary_client(tmp_path, monkeypatch):
     db_path = tmp_path / "test.db"
     monkeypatch.setattr(connection, "DATABASE_PATH", db_path)

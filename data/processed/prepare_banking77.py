@@ -232,6 +232,31 @@ until final evaluation: no vocabulary fitting, hyperparameter tuning, validation
 splitting, or model selection may use it. Person A derives any validation split from
 `train.csv` only.
 
+## Loading example (Person A)
+
+```python
+import pandas as pd
+
+train = pd.read_csv("data/processed/train.csv", dtype=str)
+test = pd.read_csv("data/processed/test.csv", dtype=str)
+
+expected = ["example_id", "text", "normalized_text", "label"]
+assert list(train.columns) == expected
+assert list(test.columns) == expected
+assert train["text"].notna().all() and test["text"].notna().all()
+assert train["label"].nunique() == 77 and test["label"].nunique() == 77
+
+print(train.shape, test.shape)  # (10003, 4) (3080, 4)
+print(sorted(train["label"].unique()) == sorted(test["label"].unique()))
+```
+
+## Handoff status
+
+Person B validated the files above (schema, counts, labels, nulls, duplicates) and
+they load without manual edits. Person A must independently confirm the package
+before training. Any unexpected source difference must be investigated and recorded
+here rather than forcing the expected counts.
+
 ## Regenerate
 
 ```bash
