@@ -1,241 +1,345 @@
 # Person B — Backend, Data, Frontend, and Integration Plan
 
-## Mission
+> Source of truth: `context/project.md` and `context/BankSense_Project_Proposal.docx` (they describe the same proposal). This plan is the execution contract for **Person B**, and it is written to interlock with `person_a_implementation_plan.md`. Where the two documents refer to shared paths, schemas, constants, or JSON shapes, the definition is identical in both. If a change is needed, **both documents are updated in the same commit**.
 
-Build the application around Person A's NLP components: Flask API, SQLite persistence, React complaint workflow, and analytics dashboard. Person B owns request/response behavior, database lifecycle, frontend integration, and application-level validation. Person A owns model training and NLP logic.
+---
 
-The proposal describes a two-day MVP. Get complaint submission and a visible result working first, then add storage, similar cases, and dashboard views. Summarisation and visual polish are stretch work after the core path works.
+## 1. Mission
 
-## Outcomes and deliverables
+Own and deliver every **application** part of BankSense around Person A's NLP interface:
 
-- Acquired and validated BANKING77 data, with a reproducible preparation script and a clearly documented handoff package for Person A.
-- Flask application with documented endpoints and input validation.
-- SQLite schema and persistence for submitted complaints and their analysis outputs.
-- React page for submitting a message and displaying intent, confidence, suggested priority/reason, similar cases, and optional summary state.
-- Dashboard with complaint count, intent distribution, priority breakdown, and common issues based only on records actually stored by this prototype.
-- Clear loading, empty, and error states; no fabricated prediction or analytics data.
-- Setup instructions, environment configuration, and end-to-end handoff notes.
+- Acquire and prepare BANKING77 into a split-preserving handoff package.
+- Build the Flask API, SQLite persistence, request/response validation, and error behaviour.
+- Build the React complaint submission + result flow and the analytics dashboard from real stored records.
+- Own dataset/manifest, orchestration, persistence, demo-data labelling, setup docs, and end-to-end integration.
 
-## Ownership boundaries
+Person B does **not** train models, reimplement classification/retrieval logic, or edit Person A's `backend/nlp/**`, `backend/models/**`, or `backend/reports/**`.
 
-Person B owns:
+---
 
-- Flask API, validation, orchestration, database access, React interface, dashboard, and application setup.
-- Dataset acquisition and general-purpose cleaning/validation, preserving the official train/test split and handing Person A stable, labeled files for model work.
-- Calling Person A's stable Python interface and mapping its results to the HTTP response.
-- Any seed/demo rows used to show the workflow; label these as demo data and make them distinguishable from user-submitted records.
+## 2. Proposal coverage (what "100%" means for Person B)
 
-Person A owns:
+| Proposal item | Owner | Phase | Definition of done |
+|---|---|---|---|
+| §3.1 Intent classification (UI/API surface) | B serves A's model | 3, 4 | UI shows intent + model confidence from API |
+| §3.2 Priority suggestion (surface) | B serves A's rules | 3, 4 | UI shows priority + reason, labelled as rule suggestion |
+| §3.3 Semantic similarity (surface) | B supplies candidates | 3, 4 | API returns similar cases from stored rows via `rank_similar` |
+| §3.4 Summarisation (surface) | B serves A's summariser | 3, 4 | UI shows summary only when present; unavailable state clear |
+| §3.5 Analytics dashboard | B | 5 | Counts, intent distribution, priority breakdown from SQLite |
+| §5 Dataset pipeline (acquisition) | B | 1 | Repeatable prep script + manifest + split-preserving CSVs |
+| §6 Stack (Flask, SQLite, React, Plotly) | B | 2–5 | App runs with documented commands |
+| §8 Workflow steps 1–2, 6, 10 | B | 3–5 | Submit → API → result → persisted → dashboard |
+| §10 Deliverables 1, 3 (server), 7, 8, 9 | B | 1–6 | Data package, API, React UI, dashboard, README |
+| §11 Limitations surfaced in UI/README | B | 4–6 | Demo marker, confidence/priority disclaimers visible |
 
-- Model-specific text transformations, training/validation choices, evaluation, model artifacts, intent inference, embeddings/retrieval calculations, priority rule definitions, and summary generation.
+---
 
-Both people own agreement on the data handoff and API contract, integration, end-to-end walkthrough, and accurate completion/limitation reporting. Person B prepares clean, split-preserving data; Person A decides transformations needed by each model. Person B should not reimplement the classifier in JavaScript or duplicate model logic in Flask routes.
+## 3. Ownership and file boundaries (identical in both plans)
 
-## Suggested application structure
-
-Adapt to the existing repository after inspection; do not create parallel structures if equivalents already exist.
+Person B **only** writes inside `data/**`, `backend/{app.py,config.py,routes,services,db,tests}/**`, `frontend/**`, `scripts/**`, the root `requirements.txt`, and the app-owned sections of `README.md`. Person A owns `backend/nlp/**`, `backend/models/**`, `backend/reports/**`.
 
 ```text
-data/
-  raw/                    # downloaded source; do not edit by hand
-  processed/
-    train.csv
-    test.csv
-    dataset_manifest.md
-backend/
-  app.py
-  routes/
-    complaints.py
-    analytics.py
-  services/
-    complaint_service.py
-  db/
-    connection.py
-    schema.sql
-  requirements.txt
-frontend/
-  src/
-    api/
-    components/
-    pages/
+BankSense/
+├── README.md                      # joint; section owners below
+├── .gitignore                     # joint
+├── requirements.txt               # Person B (aggregator)
+├── data/
+│   ├── raw/                       # Person B (immutable source)
+│   └── processed/                 # Person B
+│       ├── train.csv
+│       ├── test.csv
+│       ├── dataset_manifest.md
+│       └── prepare_banking77.py
+├── backend/
+│   ├── __init__.py                # Person B
+│   ├── app.py                     # Person B
+│   ├── config.py                  # Person B (DB path, port, CORS)
+│   ├── requirements.txt           # Person B (Flask runtime)
+│   ├── routes/                    # Person B
+│   │   ├── __init__.py
+│   │   ├── complaints.py
+│   │   ├── analytics.py
+│   │   └── health.py
+│   ├── services/                  # Person B
+│   │   ├── __init__.py
+│   │   └── complaint_service.py
+│   ├── db/                        # Person B
+│   │   ├── __init__.py
+│   │   ├── connection.py
+│   │   └── schema.sql
+│   ├── tests/                     # Person B (test_db.py, test_api_*.py)
+│   ├── nlp/                       # Person A ONLY — do not edit
+│   ├── models/                    # Person A ONLY — read-only at runtime
+│   └── reports/                   # Person A ONLY
+└── frontend/                      # Person B
+    └── src/
+        ├── api/
+        ├── components/
+        └── pages/
 ```
 
-Keep database and model paths configurable. Store the SQLite database in a documented local data directory and avoid committing generated user data.
+**Import rule (prevents integration failures):** the backend is a package run from the repo root with `python -m backend.app`. All imports are absolute, e.g. `from backend.nlp.predictor import predict, predict_top_k, health as nlp_health`. Do not add `sys.path` hacks or import `nlp.*` directly.
 
-## Detailed implementation sequence
+**Local run (both):** venv + `pip install -r requirements.txt`; backend from repo root. Person B owns the root aggregator:
 
-### Phase 0 — Agree on contract and inspect the repo (first 30–45 minutes)
-
-1. Inspect existing source, package files, framework versions, and run commands before adding a scaffold.
-2. Agree with Person A on the predictor, similarity, priority, and optional summary interface. Request a working mock result while model artifacts are still being built.
-3. Freeze the HTTP response shape and model selection option, then share it with the frontend so the UI can be built against the contract.
-4. Decide allowed priority values, how unavailable summary is represented, and whether the results page includes top alternatives.
-5. Identify environment variables needed for API URL, database path, and optional model/API configuration; do not commit secrets.
-
-**Exit check:** frontend can be built against a written response example, backend knows the exact NLP import names or temporary adapter boundary, and both people agree on the dataset columns and split handoff.
-
-### Phase 1 — Acquire and prepare BANKING77 for Person A (Day 1, first half)
-
-Person B prepares the source data; Person A owns any model-specific tokenization, vectorization, embedding preparation, and training-time transformations.
-
-1. Download BANKING77 from the documented PolyAI source (or its Hugging Face dataset page) using a repeatable script or documented command. Record the source, access date, dataset configuration/version if available, and any license/use notes in a manifest.
-2. Keep the raw downloaded source unchanged under `data/raw/`. Do not edit the original files manually.
-3. Export the official training and test partitions separately to `data/processed/train.csv` and `data/processed/test.csv`. Preserve the official split; do not shuffle rows across partitions or combine them into a single unlabeled file.
-4. Normalize the handoff schema to stable columns such as `example_id`, `text`, and `label`. Keep the original text unchanged in `text`; if whitespace normalization is useful, put it in a separate `normalized_text` column so Person A can choose which version to model.
-5. Apply only conservative cleaning: trim leading/trailing whitespace and normalize repeated whitespace in `normalized_text`; retain punctuation, casing, contractions, and wording in the original column. Do not remove stop words, stem/lemmatize, or perform TF-IDF/Sentence-BERT transformations here.
-6. Validate required columns, null/empty values, row counts, unique label counts, and train/test label consistency. Expected benchmark counts are 10,003 train and 3,080 test examples across 77 labels; if the downloaded dataset differs, investigate and document the actual configuration rather than silently forcing these counts.
-7. Check and report duplicate texts and class distribution, but do not silently delete rows. Preserve labels exactly as supplied by BANKING77 and make row IDs deterministic within each official split.
-8. Write a short manifest with source/configuration, filenames, schema, split sizes, number of labels, cleaning steps, validation results, and a note that the test set must remain untouched until final evaluation.
-9. Give Person A the processed file paths and a tiny loading example. Ask Person A to confirm that the package loads correctly before proceeding with model training.
-
-**Handoff schema example:**
-
-```csv
-example_id,text,normalized_text,label
-train-000001,"Original BANKING77 text...","Original BANKING77 text...",cash_withdrawal
+```text
+# requirements.txt (Person B)
+-r backend/requirements.txt
+-r backend/nlp/requirements.txt
 ```
 
-The example row above is illustrative. `example_id` should identify the split and row, while `label` remains the original intent string. Person A creates a validation split from the training partition if needed and fits all learned transforms using training data only. The official test partition is reserved for final comparison.
+---
 
-**Exit check:** Person A can load both processed files, sees the expected labels and split identifiers, and has enough provenance to reproduce the dataset preparation without manual spreadsheet edits.
+## 4. Shared contracts (must match Person A exactly)
 
-### Phase 2 — Flask foundation and SQLite schema (Day 1, first half, in parallel)
+These definitions are duplicated verbatim in Person A's plan. Change both together.
 
-1. Create the Flask app and separate route, service, and persistence responsibilities enough to keep handlers small.
-2. Add a health endpoint that reports application readiness without exposing secrets or falsely claiming that missing NLP artifacts are loaded.
-3. Create database initialization that is safe to run repeatedly and document how to reset local development data.
-4. Define a `complaints` table with at least: stable ID, original text, predicted intent, confidence, model name, priority, priority reason, optional summary, source/type marker for demo vs submitted data, and created timestamp.
-5. Add a clear schema for related cases if needed; otherwise use complaint IDs as similarity references and query the existing table. Keep schema as small as the MVP allows.
-6. Use parameterized SQL and validate user input before storing it. Set a reasonable maximum text length and reject blank messages.
-7. Provide a small repository/database layer so routes do not contain ad hoc SQL.
+### 4.1 Processed-data contract (Person B → Person A)
 
-**Exit check:** app starts, database initializes, and a complaint row can be inserted/read using a local development path.
+Files: `data/processed/train.csv`, `data/processed/test.csv`, UTF-8, header row, comma-separated, **no pandas index column**.
 
-### Phase 3 — Complaint analysis API (Day 1, second half)
+| column | type | rule |
+|---|---|---|
+| `example_id` | string | `train-000001` / `test-000001`, deterministic |
+| `text` | string | original BANKING77 text, unchanged |
+| `normalized_text` | string | trim + collapse whitespace only |
+| `label` | string | exact BANKING77 intent label |
 
-Implement and document the core endpoints. Exact paths may follow existing conventions.
+Expected: 77 labels; ~10,003 train / ~3,080 test (record any source difference, do not force counts). `dataset_manifest.md` must state source URL, access date, HF config/version, raw filenames + checksums, row counts, label count, null/empty/duplicate checks, cleaning steps, and the "test set untouched" rule.
 
-**`POST /api/complaints/analyze`**
+### 4.2 Shared constants (`backend/nlp/config.py`, owned by Person A, imported by Person B)
 
-1. Accept JSON containing a non-empty `text`; optionally accept a supported model name.
-2. Return a 400 response for malformed JSON, blank text, excessive length, or unsupported options.
-3. Call Person A's classifier once, then priority and similarity components. Do not repeat inference for the same request.
-4. Persist the submitted text and returned outputs only after successful analysis, or define/document a deliberate failure policy.
-5. Return a stable JSON result containing complaint ID, intent, confidence, model, priority, reason, similar cases, and summary or an explicit unavailable/null status.
-6. Return a useful 503/500 error if the model is missing or inference fails; do not return a plausible-looking mock prediction in production mode.
+```python
+MAX_TEXT_LENGTH = 2000
+SUPPORTED_MODELS = ("tfidf", "sbert")
+DEFAULT_MODEL = "tfidf"
+PRIORITIES = ("low", "medium", "high", "critical")   # ascending severity
+MODELS_DIR = <env BANKSENSE_MODELS_DIR or backend/models>
+REPORTS_DIR = <env BANKSENSE_REPORTS_DIR or backend/reports>
+```
 
-**`GET /api/complaints`**
+Person B imports `MAX_TEXT_LENGTH`, `SUPPORTED_MODELS`, `PRIORITIES` from here instead of redefining them, so validation cannot drift.
 
-1. Return recent persisted records with pagination or a simple bounded limit.
-2. Include source markers so demo examples can be identified.
-3. Do not expose more text or fields than the prototype needs.
+### 4.3 Python interface (Person A → Person B)
 
-**`GET /api/analytics`**
+```python
+# backend/nlp/predictor.py
+SUPPORTED_MODELS: tuple[str, ...]
+class NLPError(Exception): ...
+class InvalidInputError(NLPError): ...
+class UnknownModelError(NLPError): ...
+class ArtifactUnavailableError(NLPError): ...
 
-1. Aggregate stored complaint count, intent counts, priority counts, and most common intents from SQLite.
-2. State or expose whether demo records are included; use one consistent rule across cards and charts.
-3. Return empty arrays/zeroes for a new database instead of chart errors.
+def predict(text: str, model_name: str = "tfidf") -> dict:
+    # {"intent": str, "confidence": float, "model": str}
 
-**Exit check:** curl or equivalent can submit a query, receive structured analysis, and retrieve the persisted record and analytics.
+def predict_top_k(text: str, model_name: str = "tfidf", k: int = 3) -> list[dict]:
+    # [{"intent": str, "confidence": float}, ...]  (descending confidence)
 
-### Phase 4 — React submission and result flow (Day 2, first half)
+def health() -> dict:
+    # {"tfidf": bool, "sbert": bool, "summary": "enabled"|"unavailable"}
+```
 
-1. Create a compact complaint form with text area, character limit, submit state, and clear validation feedback.
-2. Connect to Flask using one frontend API module rather than scattering fetch calls across components.
-3. Show progress while analysis is running and prevent accidental duplicate submissions while the request is pending.
-4. Render intent, model confidence, model name, priority, and the rule reason returned by the API. Label confidence as model confidence.
-5. Render similar cases with their similarity scores and clearly label benchmark/demo examples when relevant.
-6. Show the summary only when one is actually returned; make unavailable status clear without blocking other results.
-7. Show backend errors in actionable plain language and preserve entered text when a request fails.
-8. Keep the first workflow linear: submit → inspect result → optionally view related cases. Avoid adding navigation/features outside the proposal before the core flow is stable.
+```python
+# backend/nlp/priority.py
+PRIORITIES: tuple[str, ...]
+def suggest_priority(text: str, intent: str) -> dict:
+    # {"priority": "low|medium|high|critical",
+    #  "priority_reason": "Rule matched: ...",
+    #  "rule_id": "unauthorised_card|duplicate_charge|cash_access|refund|informational|fallback"}
+```
 
-**Exit check:** a user can submit a query in the browser and see the API response without manually refreshing the page.
+```python
+# backend/nlp/similarity.py
+def rank_similar(query_text: str, candidates: list[dict], top_k: int = 5) -> list[dict]:
+    # candidates: [{"id": <str>, "text": <str>, ...passthrough...}]
+    # returns the same dicts + {"similarity": float in [0,1]}, sorted desc, at most top_k
+    # empty candidates -> []
+```
 
-### Phase 5 — Dashboard and history (Day 2, second half)
+```python
+# backend/nlp/summarizer.py
+def summary_status() -> str:  # "enabled" | "unavailable"
+def summarize(text: str, max_len: int = 60) -> dict:
+    # {"status": "ok", "summary": str, "summary_status": "enabled"}
+    # {"status": "unavailable", "summary": None, "summary_status": "unavailable", "reason": str}
+```
 
-1. Build summary cards for total analyzed complaints and priority counts.
-2. Add intent distribution and priority breakdown charts from `/api/analytics` response data.
-3. Add a concise recent complaints/history list, if time allows, using persisted records.
-4. Include useful loading, no-data, and API-error states. Do not ship hard-coded charts as if they came from analysis records.
-5. Mark sample/demo records clearly in the dashboard and provide a simple way to distinguish them from user-submitted records.
-6. Ensure charts remain readable at the demo viewport and do not obscure the complaint submission flow.
+Rules: models load once per process. Person B calls these functions **once per request**; it never loads model artifacts itself and never duplicates inference logic. Person B maps Person A's exceptions to HTTP errors (see §4.4).
 
-**Exit check:** dashboard values reconcile with the SQLite rows and update after a successful submission.
+### 4.4 HTTP contract (Person B implements, both agree)
 
-### Phase 6 — Integration, documentation, and demonstration
-
-1. Integrate Person A's actual module and artifacts. Verify startup behavior when artifacts are present and a clear failure state when they are missing.
-2. Walk the full path together: submit text → classify → suggest priority → retrieve related cases → save → render → update analytics.
-3. Fix cross-origin/API URL configuration for local development and document exact startup commands for both servers.
-4. Document dependencies, Python/Node versions, database creation/reset, dataset/model setup prerequisites, and known optional features.
-5. Confirm demo data labeling and ensure screenshots/demo script do not represent sample records as real bank cases.
-6. Record any incomplete feature accurately and ensure the UI reports it explicitly.
-
-## API contract to agree with Person A
-
-Illustrative successful response (values are placeholders, not real model output):
-
+`POST /api/complaints/analyze`
 ```json
+// request
+{"text": "I was charged twice for the same purchase.", "model": "tfidf"}
+```
+```json
+// 200
 {
-  "complaint_id": "stable-record-id",
-  "intent": "cash_withdrawal",
+  "complaint_id": 12,
+  "text": "I was charged twice for the same purchase.",
+  "intent": "transaction_charged_twice",
   "confidence": 0.82,
   "model": "tfidf",
-  "priority": "medium",
-  "priority_reason": "Rule matched: ...",
-  "similar_cases": [],
-  "summary": null
+  "priority": "high",
+  "priority_reason": "Rule matched: duplicate or repeated charge",
+  "similar_cases": [
+    {"complaint_id": 3, "text": "...", "intent": "...", "similarity": 0.91, "source": "demo"}
+  ],
+  "summary": null,
+  "summary_status": "unavailable",
+  "source": "submitted",
+  "created_at": "2026-11-09T12:00:00Z"
 }
 ```
-
-Suggested request:
-
+Error envelope (all errors):
 ```json
-{
-  "text": "I was charged twice for the same purchase.",
-  "model": "tfidf"
-}
+{"error": {"code": "VALIDATION_ERROR|UNKNOWN_MODEL|MODEL_UNAVAILABLE|INFERENCE_ERROR|NOT_FOUND", "message": "...", "field": "text"}}
 ```
+Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unavailable; 500 inference failure; 404 unknown id. `confidence` rounded to 4 decimals in transport.
 
-Agree exact field names, null/unavailable behavior, error envelope, and similarity case fields with Person A before building UI assumptions into multiple components.
+`GET /api/complaints?limit=20&offset=0` → `{"items": [...], "count": n}`.
+`GET /api/analytics` → `{"total_complaints": n, "by_intent": [{"intent": str, "count": n}], "by_priority": [{"priority": str, "count": n}], "most_common_intents": [...], "includes_demo": bool}`.
+`GET /api/health` → `{"status": "ok", "models": {"tfidf": bool, "sbert": bool}, "summary": "enabled|unavailable", "database": "ok"}`.
 
-## Database and data rules
+### 4.5 Analytics/DB conventions
 
-- BANKING77 is a labelled intent benchmark, not verified internal complaint history.
-- Keep raw source files immutable and processed train/test files separate. Include a preparation script and manifest so Person A can reproduce the handoff.
-- General cleaning must preserve meaning and original text. Person A owns the model-specific preprocessing and must fit learned transformations only on training data.
-- Never use the official test partition to fit a vocabulary, tune hyperparameters, make a validation split, or choose a model. Use it only for final evaluation after choices are fixed.
-- Do not silently drop duplicate examples or alter the dataset labels; record quality checks and any exclusions in the manifest.
-- If benchmark rows or hand-authored examples are inserted for the demo, keep a `source` or `is_demo` marker and show that marker in the UI.
-- Analytics must describe the rows actually counted and must not imply real bank volumes or operational outcomes.
-- Store timestamps consistently (UTC in storage is a good default) and format them for the user in the UI.
-- Do not store credentials, payment data, or sensitive identifiers; the proposal does not require banking-system integration.
+`complaints` table: `id` (PK), `text`, `normalized_text`, `intent`, `confidence`, `model`, `priority`, `priority_reason`, `summary` nullable, `summary_status`, `source` (`submitted`|`demo`), `created_at` (ISO-8601 UTC). **Decision:** `similar_cases` are derived at request time and **not persisted** (keeps schema minimal; documented in README). `source` is the single demo marker used everywhere.
 
-## Validation checklist
+### 4.6 Priority scale
 
-- [ ] BANKING77 source/configuration and preparation steps are documented and repeatable.
-- [ ] Official train and test partitions remain separate with text and original intent labels preserved.
-- [ ] Null/empty rows, label counts, split sizes, and duplicate texts are checked and reported.
-- [ ] Person A confirms that processed files load and can be used for training without manual edits.
-- [ ] Flask starts from documented commands and health status accurately reflects readiness.
-- [ ] Invalid, blank, too-long, and malformed requests return clear client errors.
-- [ ] Valid analysis calls NLP functions once and stores returned values with the complaint.
-- [ ] Model/service failures do not yield fake labels or confidence scores.
-- [ ] Database access uses parameterized queries and repeatable initialization.
-- [ ] List and analytics endpoints work with an empty database and populated records.
-- [ ] Demo/benchmark records are distinguishable from submitted complaints.
-- [ ] React shows pending, success, no-data, validation, and server-error states.
-- [ ] Confidence is labeled as model confidence; priority is labeled as a rule suggestion.
-- [ ] A successful submission appears in history/dashboard counts without a page reload.
-- [ ] Setup and reset steps are documented, with no secrets committed.
+`low < medium < high < critical`. Person B treats the value as opaque but validates it against `PRIORITIES`, and the UI labels it as a **rule suggestion**, never a fraud/risk score.
 
-## Time-box and fallback order
+---
 
-1. Acquire and validate BANKING77; deliver split-preserving files to Person A.
-2. Flask app + SQLite + complaint analysis endpoint.
-3. React submission and analysis result view.
-4. Persistence/history and analytics endpoint.
-5. Dashboard charts and demo data labels.
-6. Summarization UI and visual polish.
+## 5. Prerequisites
 
-If time is tight, deliver the complaint submit → result → persistence path first. Similarity can return an empty list with an explicit not-yet-available state if Person A has not finished its index. Keep the dashboard simple and data-backed; never substitute invented counts or predictions.
+- Python 3.10+ venv; Node 18+ for React; network access to download BANKING77 once.
+- Person B deps (`backend/requirements.txt`): `Flask`, `flask-cors` (pin where practical). Frontend deps via `frontend/package.json`.
+- Person A's modules/artifacts for the real integration (Person B can build and test with monkeypatched Person A functions before artifacts exist).
+- Agreed shared constants module path: `backend/nlp/config.py`.
+
+---
+
+## 6. Detailed work plan (two-day timeline, interlocked with Person A)
+
+### Phase 0 — Contract + scaffold (Day 1, first 30–45 min)
+
+1. Re-read `project.md`, the `.docx`, and Person A's plan. Confirm §4 in writing.
+2. Create the backend package skeleton (`backend/__init__.py`, `app.py`, `config.py`, `routes/`, `services/`, `db/`, `tests/`), Flask factory, root `requirements.txt` aggregator, `.gitignore`, and the React scaffold. Stay inside Person B's ownership.
+3. Freeze the HTTP contract, error envelope, `source` values, and summary-unavailable representation; share with Person A and the frontend.
+4. Import shared constants from `backend.nlp.config` (coordinate with Person A so the file exists early).
+
+**Exit check:** contract agreed; backend skeleton imports; Person A can import `backend.nlp.config`; data-prep plan confirmed.
+
+### Phase 1 — Acquire and prepare BANKING77 (Day 1 AM — do this FIRST, it unblocks Person A)
+
+1. `data/processed/prepare_banking77.py`: download BANKING77 from the PolyAI/HF source; keep `data/raw/` immutable; export the **official** train/test partitions to `data/processed/train.csv` / `test.csv`.
+2. Schema exactly per §4.1 (`example_id`, `text`, `normalized_text`, `label`); deterministic ids; original `text` unchanged.
+3. Conservative cleaning only (trim/collapse whitespace in `normalized_text`); no stopword removal/stemming/lemmatising; no row deletion; preserve labels.
+4. Validate: required columns, null/empty text, row counts, 77 labels, train/test label parity, duplicate counts, class distribution.
+5. Write `dataset_manifest.md` with source, access date, HF config/version, raw checksums, counts, validation results, cleaning steps, and the untouched-test rule.
+6. Tell Person A immediately when files are ready; share a loading snippet.
+
+**Exit check:** Person A loads both files unedited and confirms counts/labels match the manifest.
+
+### Phase 2 — Flask foundation + SQLite (Day 1 AM, after data prep starts)
+
+1. `app.py`: application factory, CORS for local dev, register blueprints, JSON error handlers per §4.4.
+2. `config.py`: `BANKSENSE_DB_PATH` (default documented local data dir), `SECRET`/CORS from env, never commit secrets; backend runs via `python -m backend.app`.
+3. `db/schema.sql` + `db/connection.py`: idempotent init, parameterized queries, `complaints` table per §4.5; document reset.
+4. `GET /api/health`: report DB ok and Person A's model availability via `backend.nlp.predictor.health()` — never claim a model is loaded when it is not.
+5. `services/complaint_service.py`: the only place that calls Person A's functions and writes rows. Routes stay thin.
+6. `backend/tests/`: DB init/CRUD tests and API tests using `monkeypatch` for Person A's functions (no duplicated model logic).
+
+**Exit check:** app starts, DB initializes, a row inserts/reads, health reflects reality.
+
+### Phase 3 — Complaint analysis API (Day 1 PM)
+
+1. `POST /api/complaints/analyze`: validate JSON, non-blank `text`, `MAX_TEXT_LENGTH`, `model ∈ SUPPORTED_MODELS`; map `InvalidInputError`→400, `UnknownModelError`→400, `ArtifactUnavailableError`→503, unexpected→500.
+2. Orchestrate exactly once: `predict(text, model)` → `suggest_priority(text, intent)` → fetch candidate rows → `rank_similar(text, candidates, top_k=5)` → `summarize(text)` if `summary_status()=="enabled"`.
+3. Persist only after successful analysis: core fields per §4.5, `source="submitted"`, UTC timestamp; `similar_cases` not persisted.
+4. Return the §4.4 response (round confidence to 4 dp; summary `null` + `summary_status` when unavailable).
+5. `GET /api/complaints`: bounded pagination, include `source`; don't over-expose fields.
+6. `GET /api/analytics`: aggregate from SQLite only; zero/empty shapes on a new DB; `includes_demo` uses one consistent rule.
+7. Tests: invalid JSON, blank, too long, unknown model, model-unavailable, happy path persistence, empty-DB analytics.
+
+**Exit check:** curl submits a query, receives structured analysis, and the record + analytics reflect it.
+
+### Phase 4 — React submission + result flow (Day 2 AM)
+
+1. One `frontend/src/api/` module for all Flask calls (base URL from env, e.g. `VITE_API_BASE_URL`), no scattered fetch.
+2. Complaint form: text area with character counter (`MAX_TEXT_LENGTH`), submit state, clear validation, prevent duplicate submits while pending.
+3. Result view: intent, model confidence (labelled "model confidence"), model name, priority + reason (labelled "rule suggestion"), similar cases with similarity scores and `source`/demo labels, summary only when present with explicit unavailable state.
+4. Loading/pending/empty/error states; show backend error messages; preserve entered text on failure.
+5. Keep the flow linear (submit → result → optional related cases); no out-of-scope features before the core path is stable.
+
+**Exit check:** browser submission shows the API result without manual refresh.
+
+### Phase 5 — Dashboard + history (Day 2 PM)
+
+1. Summary cards: total analyzed, priority counts.
+2. Intent distribution and priority breakdown charts (Plotly) from `/api/analytics`; handle empty/no-data without fake values.
+3. Recent complaints/history list (bounded), marking demo vs submitted.
+4. Loading/error states; readable at the demo viewport; doesn't obscure submission.
+5. If seed/demo rows are inserted, insert via the DB/service with `source="demo"` (never through a fake prediction path) and clearly label them.
+
+**Exit check:** dashboard values reconcile with SQLite rows and update after a successful submission.
+
+### Phase 6 — Integration, docs, demo (Day 2 PM, joint with Person A)
+
+1. Wire Person A's real modules/artifacts; verify startup with artifacts present and a clear failure state when absent.
+2. Walk the full path: submit → classify → priority → similarity → summary state → persist → render → analytics update.
+3. Fix CORS/API URL config; document exact startup commands for backend and frontend.
+4. README app sections: prerequisites, Python/Node versions, install, DB init/reset, run commands, env vars, endpoint reference, demo-data note. Person A writes the NLP/evaluation sections.
+5. Ensure no secrets committed; `.gitignore` covers DB files, models, caches, `node_modules`, env files.
+6. Verify confidence/priority disclaimers and demo markers are visible; record incomplete features accurately.
+7. Confirm README, dashboard, and demo use the same measured metrics and limitations.
+
+**Exit check:** full end-to-end workflow runs from documented commands; every B-owned feature is wired; incomplete items have safe fallbacks.
+
+---
+
+## 7. Verification checklist (Person B)
+
+- [ ] BANKING77 source/config documented; preparation repeatable; raw untouched.
+- [ ] Official train/test kept separate; text and original labels preserved; schema per §4.1.
+- [ ] Nulls/empties/duplicates/label counts/split sizes checked and reported; Person A confirmed load.
+- [ ] Backend starts via `python -m backend.app`; `/api/health` reflects real model/DB state.
+- [ ] Invalid JSON, blank, too-long, unknown-model requests return the §4.4 error envelope.
+- [ ] Analyze calls Person A's functions once and persists after success only.
+- [ ] Model failures never yield fake labels/confidence (no mock in production mode).
+- [ ] Parameterized SQL; idempotent DB init; reset documented.
+- [ ] List/analytics endpoints work on empty and populated DB; `similar_cases` not fabricated.
+- [ ] Demo rows marked `source="demo"` and visibly labelled; analytics states `includes_demo`.
+- [ ] React shows pending/success/no-data/validation/server-error states; preserves text on failure.
+- [ ] Confidence labelled model confidence; priority labelled rule suggestion; summary unavailable explicit.
+- [ ] Successful submission appears in history/dashboard without reload.
+- [ ] CORS/API base URL fixed; documented start commands for both servers.
+- [ ] Root `requirements.txt` installs both dependency sets; no secrets committed.
+- [ ] README app sections complete and consistent with Person A's metrics.
+
+---
+
+## 8. Time-box and fallback order
+
+1. BANKING77 data package + manifest (unblocks Person A).
+2. Flask + SQLite + `/api/complaints/analyze` with mocked Person A functions.
+3. React submission + result view.
+4. Persistence/history + analytics endpoint.
+5. Dashboard charts + demo labelling.
+6. Similarity UI, summary UI, visual polish.
+
+If Person A's similarity is not ready: return `similar_cases: []` with an explicit not-yet-available note in the UI, not fabricated matches. If the summariser is unavailable: render the unavailable state, never invent text. If time is tight: deliver submit → result → persistence → dashboard first.
+
+---
+
+## 9. Handoff acceptance from Person A
+
+- [ ] `data/processed/` package delivered and confirmed by Person A.
+- [ ] Person A's `backend/nlp/` modules importable from `python -m backend.app`.
+- [ ] `backend/models/` artifacts present; `health()` reports availability correctly.
+- [ ] `backend/reports/` metrics available to copy into README/dashboard narrative.
+- [ ] Shared constants in `backend/nlp/config.py` unchanged or updated in both plans.
+- [ ] End-to-end walkthrough signed off; limitations documented.
