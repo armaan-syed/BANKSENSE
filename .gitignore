@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/
+
+# Environment
+.env
+.env.*
+
+# Local database and user data
+data/*.db
+data/*.db-*
+data/*.sqlite
+data/*.sqlite3
+
+# Raw dataset downloads (reproducible via data/processed/prepare_banking77.py)
+data/raw/*
+!data/raw/.gitkeep
+
+# Model artifacts and embedding caches (regenerate per README)
+backend/models/*
+!backend/models/.gitkeep
+*.npy
+
+# Node / frontend
+node_modules/
+dist/
+.vite/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
