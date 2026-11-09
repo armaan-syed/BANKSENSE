@@ -1,5 +1,11 @@
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
+let accessToken = null;
+
+export function setAccessToken(token) {
+  accessToken = token || null;
+}
+
 export class ApiError extends Error {
   constructor(message, status, code, field) {
     super(message);
@@ -11,9 +17,14 @@ export class ApiError extends Error {
 }
 
 async function request(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  if (accessToken) {
+    headers.set("Authorization", `Bearer ${accessToken}`);
+  }
+
   let response;
   try {
-    response = await fetch(`${BASE_URL}${path}`, options);
+    response = await fetch(`${BASE_URL}${path}`, { ...options, headers });
   } catch (error) {
     throw new ApiError(
       "Could not reach the BankSense API. Is the backend running?",

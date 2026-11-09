@@ -1,15 +1,24 @@
 import { useEffect, useState } from "react";
 
-import { getHealth } from "./api/client";
+import { getHealth, setAccessToken } from "./api/client";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import AuthScreen from "./components/AuthScreen";
 import ComplaintForm from "./components/ComplaintForm";
 import ResultView from "./components/ResultView";
+import { isSupabaseConfigured, supabase } from "./lib/supabase";
 
 export default function App() {
   const [view, setView] = useState("analyze");
   const [result, setResult] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [health, setHealth] = useState(null);
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState(() => {
+    const query = new URLSearchParams(window.location.search);
+    const hash = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+    return query.get("error_description") || hash.get("error_description") || null;
+  });
 
   useEffect(() => {
     getHealth()
@@ -17,10 +26,78 @@ export default function App() {
       .catch(() => setHealth({ status: "error", database: "error", models: {} }));
   }, []);
 
+  useEffect(() => {
+    if (!supabase) {
+      setAuthLoading(false);
+      return undefined;
+    }
+
+    let active = true;
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (!active) return;
+        setSession(data.session);
+        setAccessToken(data.session?.access_token);
+        setAuthLoading(false);
+      })
+      .catch(() => {
+        if (active) setAuthLoading(false);
+      });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      setAccessToken(nextSession?.access_token);
+    });
+
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
   function handleResult(analysis) {
     setResult(analysis);
     setRefreshKey((key) => key + 1);
     getHealth().then(setHealth).catch(() => undefined);
+  }
+
+  async function handleSignIn() {
+    if (!supabase) return;
+    setAuthError(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: window.location.origin },
+    });
+    if (error) setAuthError(error.message);
+  }
+
+  async function handleSignOut() {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setSession(null);
+    setAccessToken(null);
+    setResult(null);
+  }
+
+  if (isSupabaseConfigured && (authLoading || health === null)) {
+    return (
+      <AuthScreen configured loading={authLoading} error={authError} onSignIn={handleSignIn} />
+    );
+  }
+
+  const authRequired = health?.auth === "required";
+  if (authRequired && !session) {
+    return (
+      <AuthScreen
+        configured={isSupabaseConfigured}
+        loading={authLoading}
+        error={authError}
+        onSignIn={handleSignIn}
+      />
+    );
   }
 
   const modelsReady = health?.models?.tfidf;
@@ -37,22 +114,32 @@ export default function App() {
             semantically similar stored cases.
           </p>
         </div>
-        <nav className="tabs" aria-label="Views">
-          <button
-            type="button"
-            className={view === "analyze" ? "active" : ""}
-            onClick={() => setView("analyze")}
-          >
-            Analyse
-          </button>
-          <button
-            type="button"
-            className={view === "dashboard" ? "active" : ""}
-            onClick={() => setView("dashboard")}
-          >
-            Dashboard
-          </button>
-        </nav>
+        <div className="header-actions">
+          <nav className="tabs" aria-label="Views">
+            <button
+              type="button"
+              className={view === "analyze" ? "active" : ""}
+              onClick={() => setView("analyze")}
+            >
+              Analyse
+            </button>
+            <button
+              type="button"
+              className={view === "dashboard" ? "active" : ""}
+              onClick={() => setView("dashboard")}
+            >
+              Dashboard
+            </button>
+          </nav>
+          {session && (
+            <div className="user-menu">
+              <span className="muted small">{session.user?.email}</span>
+              <button type="button" className="link-button" onClick={handleSignOut}>
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
       </header>
 
       {!databaseOk && (

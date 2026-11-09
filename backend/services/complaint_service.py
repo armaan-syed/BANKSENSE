@@ -5,13 +5,13 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 
 from backend.config import (
+    DATABASE_BACKEND,
     MAX_TEXT_LENGTH,
     PRIORITIES,
     SIMILAR_CASES_TOP_K,
     SUPPORTED_MODELS,
 )
 from backend.db import repository
-from backend.db.connection import check_database
 from backend.errors import (
     APIError,
     INFERENCE_ERROR,
@@ -81,11 +81,15 @@ def _validate(text: str, model: str) -> str:
     return cleaned
 
 
-def _similar_cases(nlp: SimpleNamespace, text: str) -> list[dict]:
+def _similar_cases(
+    nlp: SimpleNamespace,
+    text: str,
+    access_token: str | None = None,
+) -> list[dict]:
     if nlp.similarity is None:
         return []
     try:
-        candidates = repository.fetch_candidates()
+        candidates = repository.fetch_candidates(access_token=access_token)
         matches = nlp.similarity.rank_similar(
             text, candidates, top_k=SIMILAR_CASES_TOP_K
         )
@@ -95,9 +99,13 @@ def _similar_cases(nlp: SimpleNamespace, text: str) -> list[dict]:
     cases: list[dict] = []
     for match in matches:
         try:
+            raw_id = match["id"]
+            complaint_id = (
+                int(raw_id) if isinstance(raw_id, int) or str(raw_id).isdigit() else str(raw_id)
+            )
             cases.append(
                 {
-                    "complaint_id": int(match["id"]),
+                    "complaint_id": complaint_id,
                     "text": str(match.get("text", "")),
                     "intent": str(match.get("intent", "")),
                     "similarity": round(float(match.get("similarity", 0.0)), 4),
@@ -123,7 +131,7 @@ def _summary(nlp: SimpleNamespace, text: str) -> tuple[str | None, str]:
     return None, "unavailable"
 
 
-def analyze(text: str, model: str) -> dict:
+def analyze(text: str, model: str, user=None) -> dict:
     cleaned = _validate(text, model)
     nlp = _load_nlp()
 
@@ -147,7 +155,8 @@ def analyze(text: str, model: str) -> dict:
         priority = "low"
         priority_reason = "Rule matched: fallback (priority could not be determined)"
 
-    similar_cases = _similar_cases(nlp, cleaned)
+    access_token = user.token if user else None
+    similar_cases = _similar_cases(nlp, cleaned, access_token=access_token)
     summary, summary_status = _summary(nlp, cleaned)
 
     created_at = (
@@ -171,6 +180,8 @@ def analyze(text: str, model: str) -> dict:
         summary_status=summary_status,
         source="submitted",
         created_at=created_at,
+        user_id=user.id if user else None,
+        access_token=access_token,
     )
 
     return {
@@ -189,8 +200,12 @@ def analyze(text: str, model: str) -> dict:
     }
 
 
-def list_complaints(limit: int, offset: int) -> dict:
-    rows = repository.fetch_recent(limit, offset)
+def list_complaints(limit: int, offset: int, user=None) -> dict:
+    rows = repository.fetch_recent(
+        limit,
+        offset,
+        access_token=user.token if user else None,
+    )
     items = [
         {
             "complaint_id": row["id"],
@@ -211,14 +226,14 @@ def list_complaints(limit: int, offset: int) -> dict:
     return {"items": items, "count": len(items)}
 
 
-def get_analytics() -> dict:
-    return repository.analytics()
+def get_analytics(user=None) -> dict:
+    return repository.analytics(access_token=user.token if user else None)
 
 
 def health() -> dict:
     database = "ok"
     try:
-        check_database()
+        database = repository.check_database()
     except APIError:
         database = "error"
 
@@ -255,4 +270,5 @@ def health() -> dict:
         "models": models,
         "summary": summary,
         "database": database,
+        "auth": "required" if DATABASE_BACKEND == "supabase" else "disabled",
     }

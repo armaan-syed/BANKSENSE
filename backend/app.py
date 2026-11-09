@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.config import CORS_ORIGINS
+from backend.db import repository
 from backend.db.connection import init_db
 from backend.errors import (
     APIError,
@@ -22,7 +23,8 @@ from backend.routes import analytics, complaints, health
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    init_db()
+    if not repository.is_supabase():
+        init_db()
     yield
 
 

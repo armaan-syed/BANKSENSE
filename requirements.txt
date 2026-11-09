@@ -1,2 +1,3 @@
 -r backend/requirements.txt
 -r backend/nlp/requirements.txt
+python-dotenv>=1.0

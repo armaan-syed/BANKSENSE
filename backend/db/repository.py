@@ -2,8 +2,14 @@ from __future__ import annotations
 
 import sqlite3
 from pathlib import Path
+from typing import Any
 
-from backend.db.connection import session
+from backend import config
+from backend.db import sqlite_repository, supabase_repository
+
+
+def is_supabase() -> bool:
+    return config.DATABASE_BACKEND == "supabase"
 
 
 def insert_complaint(
@@ -20,95 +26,81 @@ def insert_complaint(
     source: str,
     created_at: str,
     path: Path | None = None,
-) -> int:
-    with session(path) as connection:
-        cursor = connection.execute(
-            """
-            INSERT INTO complaints (
-                text, normalized_text, intent, confidence, model,
-                priority, priority_reason, summary, summary_status, source, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                text,
-                normalized_text,
-                intent,
-                confidence,
-                model,
-                priority,
-                priority_reason,
-                summary,
-                summary_status,
-                source,
-                created_at,
-            ),
+    user_id: str | None = None,
+    access_token: str | None = None,
+) -> int | str:
+    if is_supabase():
+        if not user_id or not access_token:
+            raise ValueError("Supabase inserts require a user and access token.")
+        return supabase_repository.insert_complaint(
+            user_id=user_id,
+            text=text,
+            normalized_text=normalized_text,
+            intent=intent,
+            confidence=confidence,
+            model=model,
+            priority=priority,
+            priority_reason=priority_reason,
+            summary=summary,
+            summary_status=summary_status,
+            source=source,
+            created_at=created_at,
+            access_token=access_token,
         )
-        return int(cursor.lastrowid)
+    return sqlite_repository.insert_complaint(
+        text=text,
+        normalized_text=normalized_text,
+        intent=intent,
+        confidence=confidence,
+        model=model,
+        priority=priority,
+        priority_reason=priority_reason,
+        summary=summary,
+        summary_status=summary_status,
+        source=source,
+        created_at=created_at,
+        path=path,
+    )
 
 
 def fetch_recent(
     limit: int,
     offset: int,
     path: Path | None = None,
-) -> list[sqlite3.Row]:
-    with session(path) as connection:
-        rows = connection.execute(
-            """
-            SELECT id, text, intent, confidence, model, priority, priority_reason,
-                   summary, summary_status, source, created_at
-            FROM complaints
-            ORDER BY created_at DESC, id DESC
-            LIMIT ? OFFSET ?
-            """,
-            (limit, offset),
-        ).fetchall()
-        return list(rows)
+    access_token: str | None = None,
+) -> list[sqlite3.Row] | list[dict[str, Any]]:
+    if is_supabase():
+        return supabase_repository.fetch_recent(limit, offset, access_token)
+    return sqlite_repository.fetch_recent(limit=limit, offset=offset, path=path)
 
 
-def fetch_candidates(path: Path | None = None) -> list[dict]:
-    with session(path) as connection:
-        rows = connection.execute(
-            "SELECT id, text, intent, source FROM complaints ORDER BY id DESC"
-        ).fetchall()
-        return [dict(row) for row in rows]
+def fetch_candidates(
+    path: Path | None = None,
+    access_token: str | None = None,
+) -> list[dict[str, Any]]:
+    if is_supabase():
+        return supabase_repository.fetch_candidates(access_token)
+    return sqlite_repository.fetch_candidates(path=path)
 
 
-def analytics(path: Path | None = None) -> dict:
-    with session(path) as connection:
-        total = connection.execute("SELECT COUNT(*) AS count FROM complaints").fetchone()[
-            "count"
-        ]
-        by_intent = [
-            dict(row)
-            for row in connection.execute(
-                """
-                SELECT intent, COUNT(*) AS count
-                FROM complaints
-                GROUP BY intent
-                ORDER BY count DESC, intent ASC
-                """
-            ).fetchall()
-        ]
-        by_priority = [
-            dict(row)
-            for row in connection.execute(
-                """
-                SELECT priority, COUNT(*) AS count
-                FROM complaints
-                GROUP BY priority
-                ORDER BY count DESC, priority ASC
-                """
-            ).fetchall()
-        ]
-        includes_demo = bool(
-            connection.execute(
-                "SELECT EXISTS(SELECT 1 FROM complaints WHERE source = 'demo') AS present"
-            ).fetchone()["present"]
-        )
-    return {
-        "total_complaints": total,
-        "by_intent": by_intent,
-        "by_priority": by_priority,
-        "most_common_intents": by_intent[:5],
-        "includes_demo": includes_demo,
-    }
+def analytics(
+    path: Path | None = None,
+    access_token: str | None = None,
+) -> dict[str, Any]:
+    if is_supabase():
+        return supabase_repository.analytics(access_token)
+    return sqlite_repository.analytics(path=path)
+
+
+def is_allowed_user(email: str | None, access_token: str) -> bool:
+    if is_supabase():
+        return supabase_repository.is_allowed_user(email, access_token)
+    return True
+
+
+def check_database(access_token: str | None = None) -> str:
+    if is_supabase():
+        return supabase_repository.check_database(access_token)
+    from backend.db.connection import check_database as sqlite_check
+
+    return sqlite_check()

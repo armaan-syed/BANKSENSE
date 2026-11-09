@@ -6,16 +6,12 @@ real bank complaint history. They are stored with source="demo" so the API,
 dashboard, and similar-case list can distinguish them from user submissions.
 
 Usage:
-    python scripts/seed_demo.py
+    python -m scripts.seed_demo
 """
 
 from __future__ import annotations
 
-import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from backend.db import repository
 from backend.db.connection import init_db
@@ -55,6 +51,13 @@ DEMO_ROWS = [
 
 
 def main() -> int:
+    if repository.is_supabase():
+        print(
+            "seed_demo targets the local SQLite database. "
+            "Set BANKSENSE_DB_BACKEND=sqlite to seed demo rows."
+        )
+        return 1
+
     init_db()
     existing = repository.fetch_candidates()
     if any(candidate["source"] == "demo" for candidate in existing):

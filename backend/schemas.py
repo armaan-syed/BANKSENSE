@@ -13,7 +13,7 @@ class AnalyzeRequest(BaseModel):
 
 
 class SimilarCase(BaseModel):
-    complaint_id: int
+    complaint_id: int | str
     text: str
     intent: str
     similarity: float
@@ -21,7 +21,7 @@ class SimilarCase(BaseModel):
 
 
 class ComplaintResult(BaseModel):
-    complaint_id: int
+    complaint_id: int | str
     text: str
     intent: str
     confidence: float
@@ -68,6 +68,7 @@ class Health(BaseModel):
     models: ModelsHealth
     summary: Literal["enabled", "unavailable"]
     database: Literal["ok", "error"]
+    auth: Literal["required", "disabled"]
 
 
 class ErrorDetail(BaseModel):

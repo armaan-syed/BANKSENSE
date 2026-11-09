@@ -13,7 +13,26 @@ SUPPORTED_MODELS = ("tfidf", "sbert")
 DEFAULT_MODEL = "tfidf"
 PRIORITIES = ("low", "medium", "high", "critical")
 
+DEFAULT_TEXT_FIELD = "normalized_text"
+EXPECTED_LABEL_COUNT = 77
+RANDOM_SEED = 42
+VALIDATION_SIZE = 0.1
+
+SBERT_MODEL_NAME = os.environ.get(
+    "BANKSENSE_SBERT_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+)
+SUMMARY_MODEL_NAME = os.environ.get(
+    "BANKSENSE_SUMMARY_MODEL", "sshleifer/distilbart-cnn-12-6"
+)
+
+TFIDF_ARTIFACT_NAME = "tfidf_logreg.joblib"
+SBERT_ARTIFACT_NAME = "sbert_logreg.joblib"
+LABEL_CLASSES_NAME = "label_classes.json"
+SBERT_MODEL_NAME_FILE = "sbert_model_name.txt"
+TRAINING_METADATA_NAME = "training_metadata.json"
+
 _BACKEND_DIR = Path(__file__).resolve().parents[1]
+REPO_ROOT = _BACKEND_DIR.parent
 
 
 def _resolve_dir(env_name: str, default: Path) -> Path:

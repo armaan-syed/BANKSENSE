@@ -1,0 +1,120 @@
+{
+  "generated_at": "2026-11-09T12:50:21.482179+00:00",
+  "dataset": {
+    "train_rows": 10003,
+    "test_rows": 3080,
+    "label_count": 77,
+    "text_field": "normalized_text",
+    "duplicate_texts_test": 1
+  },
+  "evaluation_policy": {
+    "test_split_used_once": true,
+    "validation_split_source": "train.csv only",
+    "seed": 42
+  },
+  "models": {
+    "tfidf": {
+      "accuracy": 0.8779,
+      "macro_f1": 0.8781,
+      "weighted_f1": 0.8781,
+      "inference_ms_per_example": 0.017,
+      "config": {
+        "ngram_range": [
+          1,
+          2
+        ],
+        "min_df": 1,
+        "C": 2.0
+      }
+    },
+    "sbert": {
+      "accuracy": 0.9295,
+      "macro_f1": 0.9294,
+      "weighted_f1": 0.9294,
+      "inference_ms_per_example": 3.615,
+      "embedding_ms_per_example": 3.613,
+      "config": {
+        "C": 10.0,
+        "score": 0.9327195370373147,
+        "seconds": 15.725231174998044,
+        "fit_seconds": 19.924481572998047,
+        "embedding_source": "encoded",
+        "embedding_dimensions": 384
+      },
+      "embedding_model": "sentence-transformers/all-MiniLM-L6-v2"
+    }
+  },
+  "lowest_f1_classes": {
+    "tfidf": [
+      {
+        "label": "card_not_working",
+        "f1_score": 0.7,
+        "support": 40
+      },
+      {
+        "label": "balance_not_updated_after_bank_transfer",
+        "f1_score": 0.7111,
+        "support": 40
+      },
+      {
+        "label": "virtual_card_not_working",
+        "f1_score": 0.7302,
+        "support": 40
+      },
+      {
+        "label": "card_payment_not_recognised",
+        "f1_score": 0.7436,
+        "support": 40
+      },
+      {
+        "label": "pending_transfer",
+        "f1_score": 0.75,
+        "support": 40
+      }
+    ],
+    "sbert": [
+      {
+        "label": "transfer_not_received_by_recipient",
+        "f1_score": 0.7765,
+        "support": 40
+      },
+      {
+        "label": "balance_not_updated_after_bank_transfer",
+        "f1_score": 0.7838,
+        "support": 40
+      },
+      {
+        "label": "pending_transfer",
+        "f1_score": 0.8169,
+        "support": 40
+      },
+      {
+        "label": "declined_transfer",
+        "f1_score": 0.8406,
+        "support": 40
+      },
+      {
+        "label": "direct_debit_payment_not_recognised",
+        "f1_score": 0.8462,
+        "support": 40
+      }
+    ]
+  },
+  "notes": [
+    "Confidence is raw predict_proba output and is not calibrated.",
+    "Test rows were used only for this final evaluation.",
+    "BANKING77 is a benchmark dataset, not production bank traffic.",
+    "Priority is a triage hint, not fraud or risk scoring."
+  ],
+  "environment": {
+    "python": "3.14.7",
+    "platform": "Linux-7.2.7-200.fc44.x86_64-x86_64-with-glibc2.43",
+    "numpy": "2.5.4",
+    "pandas": "3.1.1",
+    "sklearn": "1.9.1",
+    "joblib": "1.6.0",
+    "torch": "2.15.0+cpu",
+    "torch_cuda": false,
+    "sentence_transformers": "6.2.0"
+  }
+}
