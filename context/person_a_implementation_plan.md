@@ -6,7 +6,7 @@
 
 ## 1. Mission
 
-Own and deliver every **NLP/ML** part of BankSense so that Person B can build the Flask/SQLite/React app around a stable Python interface without touching model internals:
+Own and deliver every **NLP/ML** part of BankSense so that Person B can build the FastAPI/SQLite/React app around a stable Python interface without touching model internals:
 
 - Prepare and validate the model side of Person B's BANKING77 handoff.
 - Train and honestly compare **TF-IDF + Logistic Regression** and **Sentence-BERT + Logistic Regression** on the **same official split**.
@@ -14,7 +14,7 @@ Own and deliver every **NLP/ML** part of BankSense so that Person B can build th
 - Implement **semantic similarity**, **rule-assisted priority**, and an **optional summariser** with explicit unavailable states.
 - Hand off setup notes, metrics, limitations, and a working integration example.
 
-Person A is **not** responsible for the Flask server, SQLite, React, dashboard, dataset acquisition, or any user-facing persistence.
+Person A is **not** responsible for the FastAPI server, SQLite, React, dashboard, dataset acquisition, or any user-facing persistence.
 
 ---
 
@@ -56,7 +56,7 @@ BankSense/
 │   ├── __init__.py                # Person B
 │   ├── app.py                     # Person B
 │   ├── config.py                  # Person B (DB path, port, CORS)
-│   ├── requirements.txt           # Person B (Flask runtime)
+│   ├── requirements.txt           # Person B (FastAPI runtime)
 │   ├── routes/                    # Person B
 │   │   ├── complaints.py
 │   │   ├── analytics.py
@@ -95,7 +95,7 @@ BankSense/
 └── frontend/                      # Person B
 ```
 
-**Import rule (prevents integration failures):** the backend is a package run from the repo root with `python -m backend.app`. All cross-module imports are absolute, e.g. `from backend.nlp.predictor import predict`. Person B adds no `sys.path` hacks; Person A exposes no top-level modules outside `backend/nlp`.
+**Import rule (prevents integration failures):** the backend is a package served from the repo root with `uvicorn backend.app:app` (Person B's command). All cross-module imports are absolute, e.g. `from backend.nlp.predictor import predict`. Person B adds no `sys.path` hacks; Person A exposes no top-level modules outside `backend/nlp`.
 
 **Local run (both):** venv + `pip install -r requirements.txt`; backend from repo root. Only Person B owns the root aggregator:
 
@@ -305,7 +305,7 @@ Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unav
 ### Phase 6 — Integration, docs, handoff (Day 2 PM, joint with Person B)
 
 1. Pair on one end-to-end call: submit text → `predict` → `suggest_priority` → `rank_similar` (B supplies DB candidates) → `summarize` → B persists → React renders.
-2. Fix import/path/serialization/dependency mismatches (absolute `backend.*` imports; `python -m backend.app`).
+2. Fix import/path/serialization/dependency mismatches (absolute `backend.*` imports; run with `uvicorn backend.app:app`).
 3. Write README NLP sections: Python/deps, dataset + manifest, training/eval commands, artifact locations, model selection, measured results + split, limitations (benchmark data, confidence meaning, priority not risk, test discipline).
 4. Add `backend/models/` and generated DB/embedding caches to `.gitignore`; document regeneration.
 5. Confirm metrics are identical across README, dashboard, and demo script.

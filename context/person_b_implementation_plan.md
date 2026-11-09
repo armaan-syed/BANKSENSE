@@ -9,7 +9,7 @@
 Own and deliver every **application** part of BankSense around Person A's NLP interface:
 
 - Acquire and prepare BANKING77 into a split-preserving handoff package.
-- Build the Flask API, SQLite persistence, request/response validation, and error behaviour.
+- Build the FastAPI service, SQLite persistence, request/response validation, and error behaviour.
 - Build the React complaint submission + result flow and the analytics dashboard from real stored records.
 - Own dataset/manifest, orchestration, persistence, demo-data labelling, setup docs, and end-to-end integration.
 
@@ -27,7 +27,7 @@ Person B does **not** train models, reimplement classification/retrieval logic, 
 | §3.4 Summarisation (surface) | B serves A's summariser | 3, 4 | UI shows summary only when present; unavailable state clear |
 | §3.5 Analytics dashboard | B | 5 | Counts, intent distribution, priority breakdown from SQLite |
 | §5 Dataset pipeline (acquisition) | B | 1 | Repeatable prep script + manifest + split-preserving CSVs |
-| §6 Stack (Flask, SQLite, React, Plotly) | B | 2–5 | App runs with documented commands |
+| §6 Stack (FastAPI, SQLite, React, Plotly) | B | 2–5 | App runs with documented commands |
 | §8 Workflow steps 1–2, 6, 10 | B | 3–5 | Submit → API → result → persisted → dashboard |
 | §10 Deliverables 1, 3 (server), 7, 8, 9 | B | 1–6 | Data package, API, React UI, dashboard, README |
 | §11 Limitations surfaced in UI/README | B | 4–6 | Demo marker, confidence/priority disclaimers visible |
@@ -52,9 +52,10 @@ BankSense/
 │       └── prepare_banking77.py
 ├── backend/
 │   ├── __init__.py                # Person B
-│   ├── app.py                     # Person B
+│   ├── app.py                     # Person B (FastAPI app, routers, middleware)
 │   ├── config.py                  # Person B (DB path, port, CORS)
-│   ├── requirements.txt           # Person B (Flask runtime)
+│   ├── schemas.py                 # Person B (Pydantic request/response models)
+│   ├── requirements.txt           # Person B (FastAPI runtime)
 │   ├── routes/                    # Person B
 │   │   ├── __init__.py
 │   │   ├── complaints.py
@@ -78,7 +79,7 @@ BankSense/
         └── pages/
 ```
 
-**Import rule (prevents integration failures):** the backend is a package run from the repo root with `python -m backend.app`. All imports are absolute, e.g. `from backend.nlp.predictor import predict, predict_top_k, health as nlp_health`. Do not add `sys.path` hacks or import `nlp.*` directly.
+**Import rule (prevents integration failures):** the backend is a package served from the repo root with `uvicorn backend.app:app --reload --port 8000`. All imports are absolute, e.g. `from backend.nlp.predictor import predict, predict_top_k, health as nlp_health`. Do not add `sys.path` hacks or import `nlp.*` directly.
 
 **Local run (both):** venv + `pip install -r requirements.txt`; backend from repo root. Person B owns the root aggregator:
 
@@ -216,7 +217,7 @@ Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unav
 ## 5. Prerequisites
 
 - Python 3.10+ venv; Node 18+ for React; network access to download BANKING77 once.
-- Person B deps (`backend/requirements.txt`): `Flask`, `flask-cors` (pin where practical). Frontend deps via `frontend/package.json`.
+- Person B deps (`backend/requirements.txt`): `fastapi[standard]` (includes Uvicorn + Pydantic), `pytest`, `httpx` (for FastAPI `TestClient`); pin where practical. CORS uses Starlette's built-in `CORSMiddleware` (no extra package). Frontend deps via `frontend/package.json`.
 - Person A's modules/artifacts for the real integration (Person B can build and test with monkeypatched Person A functions before artifacts exist).
 - Agreed shared constants module path: `backend/nlp/config.py`.
 
@@ -227,7 +228,7 @@ Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unav
 ### Phase 0 — Contract + scaffold (Day 1, first 30–45 min)
 
 1. Re-read `project.md`, the `.docx`, and Person A's plan. Confirm §4 in writing.
-2. Create the backend package skeleton (`backend/__init__.py`, `app.py`, `config.py`, `routes/`, `services/`, `db/`, `tests/`), Flask factory, root `requirements.txt` aggregator, `.gitignore`, and the React scaffold. Stay inside Person B's ownership.
+2. Create the backend package skeleton (`backend/__init__.py`, `app.py`, `config.py`, `schemas.py`, `routes/`, `services/`, `db/`, `tests/`), the FastAPI app (`app = FastAPI(...)` with grouped `APIRouter`s, `CORSMiddleware`, and custom exception handlers), root `requirements.txt` aggregator, `.gitignore`, and the React scaffold. Stay inside Person B's ownership.
 3. Freeze the HTTP contract, error envelope, `source` values, and summary-unavailable representation; share with Person A and the frontend.
 4. Import shared constants from `backend.nlp.config` (coordinate with Person A so the file exists early).
 
@@ -244,20 +245,22 @@ Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unav
 
 **Exit check:** Person A loads both files unedited and confirms counts/labels match the manifest.
 
-### Phase 2 — Flask foundation + SQLite (Day 1 AM, after data prep starts)
+### Phase 2 — FastAPI foundation + SQLite (Day 1 AM, after data prep starts)
 
-1. `app.py`: application factory, CORS for local dev, register blueprints, JSON error handlers per §4.4.
-2. `config.py`: `BANKSENSE_DB_PATH` (default documented local data dir), `SECRET`/CORS from env, never commit secrets; backend runs via `python -m backend.app`.
-3. `db/schema.sql` + `db/connection.py`: idempotent init, parameterized queries, `complaints` table per §4.5; document reset.
-4. `GET /api/health`: report DB ok and Person A's model availability via `backend.nlp.predictor.health()` — never claim a model is loaded when it is not.
-5. `services/complaint_service.py`: the only place that calls Person A's functions and writes rows. Routes stay thin.
-6. `backend/tests/`: DB init/CRUD tests and API tests using `monkeypatch` for Person A's functions (no duplicated model logic).
+1. `app.py`: create `app = FastAPI(title="BankSense", version="0.1.0")`; add `CORSMiddleware` for local dev; include `APIRouter`s; register exception handlers that emit the §4.4 error envelope. Custom `RequestValidationError` handler must return **400** (not FastAPI's default 422) and an `HTTPException` handler must return the same envelope (including 404).
+2. `schemas.py`: Pydantic request models (`AnalyzeRequest`: `text: str`, `model: str = "tfidf"`) and response models (`ComplaintResult`, `ComplaintList`, `Analytics`, `Health`, `ErrorEnvelope`) matching §4.4 exactly. Validation length/blank checks happen in the service (using `MAX_TEXT_LENGTH`) so the error code is `VALIDATION_ERROR`, not a Pydantic 422.
+3. `config.py`: `BANKSENSE_DB_PATH` (default documented local data dir), CORS origins from env, never commit secrets; run with `uvicorn backend.app:app --reload --port 8000` from the repo root.
+4. **Concurrency:** define route handlers as plain `def` (not `async def`) so FastAPI runs the blocking NLP/SQLite work in its threadpool; do not call blocking model inference inside `async def`.
+5. `db/schema.sql` + `db/connection.py`: idempotent init, parameterized queries, `complaints` table per §4.5; document reset.
+6. `GET /api/health`: report DB ok and Person A's model availability via `backend.nlp.predictor.health()` — never claim a model is loaded when it is not.
+7. `services/complaint_service.py`: the only place that calls Person A's functions and writes rows. Routes stay thin.
+8. `backend/tests/`: DB init/CRUD tests and API tests using `fastapi.testclient.TestClient` with `monkeypatch` for Person A's functions (no duplicated model logic). Free OpenAPI docs available at `/docs` and `/openapi.json`.
 
-**Exit check:** app starts, DB initializes, a row inserts/reads, health reflects reality.
+**Exit check:** `uvicorn` starts, DB initializes, a row inserts/reads, `/docs` renders, health reflects reality.
 
 ### Phase 3 — Complaint analysis API (Day 1 PM)
 
-1. `POST /api/complaints/analyze`: validate JSON, non-blank `text`, `MAX_TEXT_LENGTH`, `model ∈ SUPPORTED_MODELS`; map `InvalidInputError`→400, `UnknownModelError`→400, `ArtifactUnavailableError`→503, unexpected→500.
+1. `POST /api/complaints/analyze`: validate JSON, non-blank `text`, `MAX_TEXT_LENGTH`, `model ∈ SUPPORTED_MODELS`; map `InvalidInputError`→400, `UnknownModelError`→400, `ArtifactUnavailableError`→503, unexpected→500. Malformed JSON / wrong field types are caught by the `RequestValidationError` handler and returned as 400 `VALIDATION_ERROR` per §4.4 (not 422).
 2. Orchestrate exactly once: `predict(text, model)` → `suggest_priority(text, intent)` → fetch candidate rows → `rank_similar(text, candidates, top_k=5)` → `summarize(text)` if `summary_status()=="enabled"`.
 3. Persist only after successful analysis: core fields per §4.5, `source="submitted"`, UTC timestamp; `similar_cases` not persisted.
 4. Return the §4.4 response (round confidence to 4 dp; summary `null` + `summary_status` when unavailable).
@@ -269,7 +272,7 @@ Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unav
 
 ### Phase 4 — React submission + result flow (Day 2 AM)
 
-1. One `frontend/src/api/` module for all Flask calls (base URL from env, e.g. `VITE_API_BASE_URL`), no scattered fetch.
+1. One `frontend/src/api/` module for all API calls (base URL from env, e.g. `VITE_API_BASE_URL`), no scattered fetch.
 2. Complaint form: text area with character counter (`MAX_TEXT_LENGTH`), submit state, clear validation, prevent duplicate submits while pending.
 3. Result view: intent, model confidence (labelled "model confidence"), model name, priority + reason (labelled "rule suggestion"), similar cases with similarity scores and `source`/demo labels, summary only when present with explicit unavailable state.
 4. Loading/pending/empty/error states; show backend error messages; preserve entered text on failure.
@@ -291,7 +294,7 @@ Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unav
 
 1. Wire Person A's real modules/artifacts; verify startup with artifacts present and a clear failure state when absent.
 2. Walk the full path: submit → classify → priority → similarity → summary state → persist → render → analytics update.
-3. Fix CORS/API URL config; document exact startup commands for backend and frontend.
+3. Fix CORS/API URL config; document exact startup commands for backend (`uvicorn backend.app:app --reload --port 8000` from repo root) and frontend.
 4. README app sections: prerequisites, Python/Node versions, install, DB init/reset, run commands, env vars, endpoint reference, demo-data note. Person A writes the NLP/evaluation sections.
 5. Ensure no secrets committed; `.gitignore` covers DB files, models, caches, `node_modules`, env files.
 6. Verify confidence/priority disclaimers and demo markers are visible; record incomplete features accurately.
@@ -306,7 +309,7 @@ Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unav
 - [ ] BANKING77 source/config documented; preparation repeatable; raw untouched.
 - [ ] Official train/test kept separate; text and original labels preserved; schema per §4.1.
 - [ ] Nulls/empties/duplicates/label counts/split sizes checked and reported; Person A confirmed load.
-- [ ] Backend starts via `python -m backend.app`; `/api/health` reflects real model/DB state.
+- [ ] Backend starts via `uvicorn backend.app:app`; `/api/health` reflects real model/DB state; `/docs` renders.
 - [ ] Invalid JSON, blank, too-long, unknown-model requests return the §4.4 error envelope.
 - [ ] Analyze calls Person A's functions once and persists after success only.
 - [ ] Model failures never yield fake labels/confidence (no mock in production mode).
@@ -325,7 +328,7 @@ Status mapping: 400 invalid/blank/too-long JSON or unknown model; 503 model unav
 ## 8. Time-box and fallback order
 
 1. BANKING77 data package + manifest (unblocks Person A).
-2. Flask + SQLite + `/api/complaints/analyze` with mocked Person A functions.
+2. FastAPI + SQLite + `/api/complaints/analyze` with mocked Person A functions.
 3. React submission + result view.
 4. Persistence/history + analytics endpoint.
 5. Dashboard charts + demo labelling.
@@ -338,7 +341,7 @@ If Person A's similarity is not ready: return `similar_cases: []` with an explic
 ## 9. Handoff acceptance from Person A
 
 - [ ] `data/processed/` package delivered and confirmed by Person A.
-- [ ] Person A's `backend/nlp/` modules importable from `python -m backend.app`.
+- [ ] Person A's `backend/nlp/` modules importable when served via `uvicorn backend.app:app`.
 - [ ] `backend/models/` artifacts present; `health()` reports availability correctly.
 - [ ] `backend/reports/` metrics available to copy into README/dashboard narrative.
 - [ ] Shared constants in `backend/nlp/config.py` unchanged or updated in both plans.

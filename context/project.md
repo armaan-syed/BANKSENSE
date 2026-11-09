@@ -8,7 +8,7 @@ AT A GLANCE	DETAIL
 Problem	Large volumes of unstructured banking queries must be understood, categorised and routed.
 Users	Bank support teams, complaint-resolution teams, operations teams and customer-service managers.
 Core NLP	TF-IDF, Logistic Regression, Sentence-BERT embeddings and cosine similarity.
-Product	React interface + Flask API + SQLite + trained NLP models.
+Product	React interface + FastAPI backend + SQLite + trained NLP models.
 Dataset	BANKING77: 13,083 labelled banking queries across 77 intent classes.
 Duration	Two days for a functional prototype; scope is limited to an MVP.
 Deliverable	A working complaint-analysis application plus a measured comparison of two classification approaches.
@@ -49,7 +49,7 @@ Baseline classifier	TF-IDF + Logistic Regression	Traditional ML text classificat
 Embedding classifier	Sentence-BERT + Logistic Regression	Classification using sentence representations.
 Similarity retrieval	Sentence-BERT + cosine similarity	Find semantically related complaints.
 Summarisation	Pretrained model or API	Create concise complaint summaries.
-Backend	Flask REST API	Expose model and application functions.
+Backend	FastAPI REST API	Expose model and application functions.
 Frontend	React.js	Complaint submission and dashboard.
 Database	SQLite	Store complaints and prediction outputs.
 Visualisation / evaluation	Plotly / Scikit-learn	Dashboard charts and model metrics.
@@ -61,7 +61,7 @@ Two classification pipelines will be implemented and compared using the same tra
 Evaluation will report accuracy, precision, recall, F1-score and a confusion matrix. Macro-F1 is particularly useful across 77 classes because it gives each class more balanced importance. Keep the test set separate from training and model selection. Report measured results only; do not invent or promise a target accuracy.
 8. System Workflow
     3. Customer enters a banking-related query in the React interface.
-    4. React sends the text to the Flask API.
+    4. React sends the text to the FastAPI backend.
     5. The backend preprocesses the text and runs the intent classifier.
     6. The system returns the predicted intent and confidence.
     7. Predefined rules suggest a priority based on the intent and relevant text conditions.
@@ -70,7 +70,7 @@ Evaluation will report accuracy, precision, recall, F1-score and a confusion mat
     10. The complaint and its outputs are stored in SQLite and reflected in dashboard analytics.
 9. Two-Day Implementation Plan
 Timeline	Member 1 — NLP / ML	Member 2 — Backend / UI
-Day 1	Explore BANKING77; preprocess data; train TF-IDF + Logistic Regression; generate Sentence-BERT embeddings; evaluate models.	Set up Flask; create API structure; design SQLite schema; implement complaint storage and similarity endpoint.
+Day 1	Explore BANKING77; preprocess data; train TF-IDF + Logistic Regression; generate Sentence-BERT embeddings; evaluate models.	Set up FastAPI; create API structure; design SQLite schema; implement complaint storage and similarity endpoint.
 Day 2	Integrate classifier; implement priority rules; add summarisation; validate outputs and evaluation.	Build React complaint form, results view and dashboard; connect APIs; support integration and testing.
 
 Both members jointly handle integration, end-to-end testing, bug fixing and the final demonstration. If time becomes tight, prioritise classification, similarity retrieval, complaint submission and results display. Summarisation and advanced dashboard polish are secondary.
@@ -101,6 +101,6 @@ Both members jointly handle integration, end-to-end testing, bug fixing and the 
 13. Resume and Learning Outcomes
 The project demonstrates applied NLP, supervised classification, transformer-based text representations, semantic retrieval, model evaluation and full-stack integration. It is relevant to AI/ML, NLP, software engineering and fintech engineering internship discussions.
 Suggested resume description (use after implementation):
-Built BankSense, an NLP-based banking complaint triage prototype using TF-IDF, Logistic Regression and Sentence-BERT; compared intent-classification approaches, implemented semantic retrieval and rule-assisted priority suggestions, and integrated the models into a Flask and React application.
+Built BankSense, an NLP-based banking complaint triage prototype using TF-IDF, Logistic Regression and Sentence-BERT; compared intent-classification approaches, implemented semantic retrieval and rule-assisted priority suggestions, and integrated the models into a FastAPI and React application.
 14. Conclusion
 BankSense applies NLP and machine learning to a defined financial-services workflow: understanding and organising incoming banking queries. By combining a measurable classification experiment with semantic retrieval and a usable application interface, the project aims to deliver a technically meaningful prototype within a constrained two-day development window.
