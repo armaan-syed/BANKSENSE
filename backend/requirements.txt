@@ -1,3 +1,5 @@
+# The model artifacts are validated separately; see backend/nlp/requirements.txt
+# and DEPLOY_VERCEL.md before pinning or upgrading the NLP stack.
 fastapi[standard]>=0.115
 python-dotenv>=1.0
 PyJWT[crypto]>=2.8

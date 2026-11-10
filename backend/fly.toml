@@ -1,0 +1,56 @@
+# Fly.io configuration for the BankSense FastAPI backend.
+#
+# The app name must be globally unique. Change it here (and in the deploy
+# commands in DEPLOY_VERCEL.md) if `banksense-api` is already taken. If you
+# rename the app, update VITE_API_BASE_URL in Vercel to the new
+# https://<app-name>.fly.dev origin as well.
+app = "banksense-api"
+
+# Singapore is the closest Fly.io region to India. Fly.io does not have a
+# Mumbai (bom) region. See DEPLOY_VERCEL.md for the region and cost notes.
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  BANKSENSE_DB_BACKEND = "supabase"
+  BANKSENSE_MODELS_DIR = "/app/backend/models"
+  # The optional summariser is ~1.2 GB of weights. Keep it off on the 2 GB
+  # machine so the two required classifiers always have memory headroom.
+  BANKSENSE_ENABLE_SUMMARY = "0"
+  PORT = "8080"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # Keep the machine warm. Loading torch + the SBERT encoder takes ~30 s, so
+  # auto-stop would make the first request after every idle period slow.
+  # auto_start_machines is enabled so Fly can bring the machine back if it is
+  # ever stopped by the platform or an operator; it does not scale to zero.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "requests"
+    soft_limit = 20
+    hard_limit = 30
+
+# 2 shared vCPUs / 2 GB RAM. This is enough for CPU torch, scikit-learn, the
+# SBERT encoder, and both trained classifiers without swapping.
+[[vm]]
+  size = "shared-cpu-2x"
+  memory = "2gb"
+
+# Liveness only. `/` returns a small JSON document without loading the models.
+# `/api/health` is intentionally checked manually after deploy because the
+# first call loads both classifiers and can take ~30 s.
+[checks]
+  [checks.alive]
+    type = "http"
+    port = 8080
+    path = "/"
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "30s"

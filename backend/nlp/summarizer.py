@@ -12,7 +12,7 @@ from __future__ import annotations
 import re
 import threading
 
-from backend.nlp.config import MAX_TEXT_LENGTH, SUMMARY_MODEL_NAME
+from backend.nlp.config import MAX_TEXT_LENGTH, SUMMARY_ENABLED, SUMMARY_MODEL_NAME
 
 _VERBATIM_WORD_LIMIT = 30
 _model = None
@@ -31,6 +31,8 @@ def _dependencies_available() -> tuple[bool, str]:
 
 
 def summary_status() -> str:
+    if not SUMMARY_ENABLED:
+        return "unavailable"
     available, _ = _dependencies_available()
     return "enabled" if available else "unavailable"
 
@@ -76,6 +78,8 @@ def _load_model():
 
 
 def summarize(text: str, max_len: int = 60) -> dict:
+    if not SUMMARY_ENABLED:
+        return _unavailable("summarisation is disabled by BANKSENSE_ENABLE_SUMMARY")
     cleaned = " ".join(str(text or "").split())
     if not cleaned:
         return _unavailable("empty text")

@@ -12,6 +12,9 @@ venv/
 !.env.example
 !frontend/.env.example
 
+# Local downloaded repository snapshot (not part of the project)
+BANKSENSE-armaan/
+
 # Local database and user data
 data/*.db
 data/*.db-*
@@ -22,10 +25,26 @@ data/*.sqlite3
 data/raw/*
 !data/raw/.gitkeep
 
-# Model artifacts and embedding caches (regenerate per README)
+# Model artifacts, archives, and embedding caches (regenerate per README).
+# The five inference artifacts must never enter Git; they are supplied at
+# deploy time from the private model archive.
 backend/models/*
 !backend/models/.gitkeep
+model.zip
+*.joblib
 *.npy
+*.pkl
+*.pickle
+*.onnx
+*.pt
+*.pth
+*.safetensors
+*.h5
+*.keras
+*.bin
+*.tar
+*.tar.gz
+*.tgz
 
 # Node / frontend
 node_modules/

@@ -1,0 +1,13 @@
+**/__pycache__/
+**/*.py[cod]
+**/.pytest_cache/
+**/.venv/
+**/venv/
+reports/
+.env
+.env.*
+.DS_Store
+
+# Training-only caches; the five inference artifacts are still included.
+models/embedding_cache/
+models/**/*.npy

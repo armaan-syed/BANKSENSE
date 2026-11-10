@@ -1,3 +1,7 @@
+# These ranges are intentionally broad. The genuine joblib artifacts record the
+# exact training environment in backend/models/training_metadata.json. Do not
+# pin or upgrade blindly: verify the real artifacts load and predict with the
+# Docker image before changing these ranges. See DEPLOY_VERCEL.md.
 pandas>=2.2
 numpy>=1.26
 scikit-learn>=1.4

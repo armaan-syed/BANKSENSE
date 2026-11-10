@@ -11,6 +11,9 @@ transaction system.
 > **Hosting handoff:** see [HANDOFF.md](HANDOFF.md). This branch is trimmed for
 > deployment. Development test suites and local planning notes are intentionally
 > excluded; model artifacts are supplied separately in `model.zip`.
+>
+> **Deployment:** see [DEPLOY_VERCEL.md](DEPLOY_VERCEL.md) for the split
+> Vercel (frontend) + Fly.io (backend container) + Supabase setup.
 
 ## Project status
 
@@ -177,7 +180,8 @@ Reset it by deleting that file and restarting.
 | `BANKSENSE_REPORTS_DIR` | `backend/reports` | Person A reports |
 | `BANKSENSE_SBERT_MODEL` | `sentence-transformers/all-MiniLM-L6-v2` | SBERT encoder |
 | `BANKSENSE_SUMMARY_MODEL` | `sshleifer/distilbart-cnn-12-6` | optional summariser |
-| `VITE_API_BASE_URL` | empty (Vite proxy) | frontend API origin |
+| `BANKSENSE_ENABLE_SUMMARY` | `1` locally; `0` in `backend/fly.toml` | disable the optional summariser |
+| `VITE_API_BASE_URL` | empty (Vite proxy) | frontend API origin; set to the Fly.io URL for Vercel |
 
 Configuration is read from the repository-root `.env`. Copy `.env.example` to
 `.env` and fill in the Supabase values. `.env` is git-ignored.
@@ -277,9 +281,10 @@ npm run dev
 
 Open <http://127.0.0.1:5173>. The Vite dev server proxies `/api` to
 `http://127.0.0.1:8000`; set `VITE_API_BASE_URL` to call a different origin.
-When Supabase is configured, the UI shows a Google sign-in screen and sends the
-Supabase access token with each API request. The Vite config reads the root
-`.env` file.
+For the Vercel production build, `VITE_API_BASE_URL` must be the Fly.io HTTPS
+origin; the build fails if it is missing. When Supabase is configured, the UI
+shows a Google sign-in screen and sends the Supabase access token with each API
+request. The Vite config reads the root `.env` file.
 
 Production build:
 
